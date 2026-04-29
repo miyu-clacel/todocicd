@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { supabase } from "./supabase";
 
 type Todo = {
   id: number;
@@ -10,19 +11,54 @@ function App() {
   const [todos, setTodos] = useState<Todo[]>([]);
   const [title, setTitle] = useState("");
 
-  const handleAddTodo = () => {
+  useEffect(() => {
+    const fetchTodos = async () => {
+      const { data } = await supabase
+        .from("todo")
+        .select()
+        .order("created_at", { ascending: false });
+
+      setTodos(data);
+    };
+
+    fetchTodos();
+  }, []);
+
+  const handleAddTodo = async () => {
     if (title.trim()) {
-      setTodos([...todos, { id: todos.length + 1, title, completed: false }]);
+      const { error } = await supabase.from("todo").insert({ title });
+
+      if (error) {
+        console.error(error);
+        return;
+      }
+
+      const { data } = await supabase
+        .from("todo")
+        .select()
+        .order("created_at", { ascending: false });
+      setTodos(data);
       setTitle("");
     }
   };
 
-  const handleToggleTodo = (id: number) => {
-    setTodos(
-      todos.map((todo) =>
-        todo.id === id ? { ...todo, completed: !todo.completed } : todo,
-      ),
-    );
+  const handleToggleTodo = async (id: number) => {
+    const targetTodo = todos.find((todo) => todo.id === id);
+
+    const { error } = await supabase
+      .from("todo")
+      .update({ completed: !targetTodo?.completed })
+      .eq("id", id);
+    if (error) {
+      console.error(error);
+      return;
+    }
+
+    const { data } = await supabase
+      .from("todo")
+      .select()
+      .order("created_at", { ascending: false });
+    setTodos(data);
   };
 
   return (
